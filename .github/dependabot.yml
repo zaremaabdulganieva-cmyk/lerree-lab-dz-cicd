@@ -10,6 +10,13 @@ updates:
       day: monday
     open-pull-requests-limit: 5
     groups:
+      # Пакеты, которые обязаны обновляться вместе. Найдено на первом же
+      # прогоне: react без react-dom и vitest без своего модуля покрытия
+      # по отдельности ломают сборку — CI такие PR не пропустил.
+      react:
+        patterns: ['react', 'react-dom', '@types/react', '@types/react-dom']
+      vitest:
+        patterns: ['vitest', '@vitest/*']
       # Мелкие обновления инструментов — одним PR, чтобы не заваливать.
       dev-tools:
         dependency-type: development

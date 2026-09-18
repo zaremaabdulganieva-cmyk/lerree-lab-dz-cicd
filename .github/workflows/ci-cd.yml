@@ -86,7 +86,9 @@ jobs:
   # -------------------------------------------------------------------
   deploy-preview:
     name: Превью на Vercel
-    if: github.event_name == 'pull_request'
+    # У PR от Dependabot GitHub не открывает секреты репозитория, так что
+    # выложить превью они не могут; их проверяют только проверки качества.
+    if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
     needs: quality
     runs-on: ubuntu-latest
     timeout-minutes: 10
