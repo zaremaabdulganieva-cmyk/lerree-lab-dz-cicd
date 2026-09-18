@@ -1,0 +1,21 @@
+# Раз в неделю Dependabot проверяет зависимости и сам открывает pull
+# request с обновлением. PR проходит тот же CI, что и обычный код, —
+# сломанное обновление не попадёт на боевой адрес.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      # Мелкие обновления инструментов — одним PR, чтобы не заваливать.
+      dev-tools:
+        dependency-type: development
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

@@ -1,0 +1,189 @@
+# =====================================================================
+# CI/CD демо-кабинета Lerree Lab
+#
+# Что происходит и когда:
+#   pull request  → проверки качества → превью-версия на Vercel,
+#                   ссылка приходит комментарием в PR;
+#   push в main   → проверки качества → выкладка на боевой адрес →
+#                   проверка, что выложенное действительно живо.
+#
+# Если любая проверка падает, выкладка не начинается: на боевой адрес
+# попадает только то, что прошло всё.
+# =====================================================================
+
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Новый пуш в ту же ветку отменяет предыдущий незаконченный прогон —
+# нет смысла проверять и выкладывать устаревший код.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: 22
+  VERCEL_CLI: vercel@59.23.1
+
+jobs:
+  # -------------------------------------------------------------------
+  # 1. Проверки качества — одинаковые для всех веток и PR
+  # -------------------------------------------------------------------
+  quality:
+    name: Проверки качества
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Установка зависимостей
+        run: npm ci
+
+      - name: Форматирование (Prettier)
+        run: npm run format:check
+
+      - name: Линтер (oxlint)
+        run: npm run lint
+
+      - name: Проверка типов (TypeScript)
+        run: npm run typecheck
+
+      - name: Тесты с покрытием (Vitest)
+        run: npm run test:coverage
+
+      - name: Уязвимости в зависимостях (npm audit)
+        run: npm run audit:deps
+
+      - name: Сборка
+        run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+
+      - name: Отчёт о покрытии
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # -------------------------------------------------------------------
+  # 2. Превью для pull request
+  # -------------------------------------------------------------------
+  deploy-preview:
+    name: Превью на Vercel
+    if: github.event_name == 'pull_request'
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Проверка настроек Vercel
+        run: |
+          [ -n "$VERCEL_TOKEN" ] || { echo "::error::Не задан секрет VERCEL_TOKEN (Settings → Secrets → Actions)"; exit 1; }
+          [ -n "$VERCEL_ORG_ID" ] && [ -n "$VERCEL_PROJECT_ID" ] || { echo "::error::Не заданы переменные VERCEL_ORG_ID / VERCEL_PROJECT_ID (Settings → Variables → Actions)"; exit 1; }
+
+      - run: npm install --global ${{ env.VERCEL_CLI }}
+
+      - name: Сборка и выкладка превью
+        id: deploy
+        run: |
+          vercel pull --yes --environment=preview --token="$VERCEL_TOKEN"
+          vercel build --token="$VERCEL_TOKEN"
+          url=$(vercel deploy --prebuilt --token="$VERCEL_TOKEN")
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "### Превью: $url" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Ссылка на превью в PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `Превью этой ветки: ${{ steps.deploy.outputs.url }}\n\nСобрано из ${context.sha.slice(0, 7)}, все проверки качества пройдены.`,
+            })
+
+  # -------------------------------------------------------------------
+  # 3. Выкладка на боевой адрес — только из main
+  # -------------------------------------------------------------------
+  deploy-production:
+    name: Выкладка на Vercel
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: production
+      url: ${{ vars.PRODUCTION_URL }}
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+      PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Проверка настроек Vercel
+        run: |
+          [ -n "$VERCEL_TOKEN" ] || { echo "::error::Не задан секрет VERCEL_TOKEN (Settings → Secrets → Actions)"; exit 1; }
+          [ -n "$VERCEL_ORG_ID" ] && [ -n "$VERCEL_PROJECT_ID" ] || { echo "::error::Не заданы переменные VERCEL_ORG_ID / VERCEL_PROJECT_ID (Settings → Variables → Actions)"; exit 1; }
+          [ -n "$PRODUCTION_URL" ] || { echo "::error::Не задана переменная PRODUCTION_URL (Settings → Variables → Actions)"; exit 1; }
+
+      - run: npm install --global ${{ env.VERCEL_CLI }}
+
+      - name: Сборка и выкладка
+        run: |
+          vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+          vercel build --prod --token="$VERCEL_TOKEN"
+          vercel deploy --prebuilt --prod --env APP_VERSION="${GITHUB_SHA:0:7}" --token="$VERCEL_TOKEN"
+
+      # Выкладка «прошла» ещё не значит «работает». Спрашиваем живой
+      # адрес, всё ли в порядке с базой и входом. Несколько попыток —
+      # новой версии нужно несколько секунд, чтобы стать основной.
+      - name: Проверка после выкладки (/api/health)
+        run: |
+          for attempt in 1 2 3 4 5 6; do
+            body=$(curl -s --max-time 15 "$PRODUCTION_URL/api/health" || true)
+            echo "Попытка $attempt: $body"
+            if echo "$body" | grep -q '"status":"ok"' && echo "$body" | grep -q "\"version\":\"${GITHUB_SHA:0:7}\""; then
+              echo "### Выложено и работает: $PRODUCTION_URL (версия ${GITHUB_SHA:0:7})" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::После выкладки /api/health не отвечает «ok» с версией ${GITHUB_SHA:0:7}"
+          exit 1
