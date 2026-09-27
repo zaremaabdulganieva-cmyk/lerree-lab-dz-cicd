@@ -99,6 +99,8 @@ jobs:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
     steps:
       - uses: actions/checkout@v4
 
@@ -118,7 +120,15 @@ jobs:
         id: deploy
         run: |
           vercel pull --yes --environment=preview --token="$VERCEL_TOKEN"
+          # Переменные VITE_* в Vercel помечены как секретные, и `vercel pull`
+          # кладёт вместо них заглушку «[SENSITIVE]» — кабинет собрался бы
+          # без базы. Подставляем настоящие значения из секретов GitHub.
+          env_file=.vercel/.env.preview.local
+          sed -i '/^VITE_SUPABASE_/d' "$env_file"
+          printf 'VITE_SUPABASE_URL="%s"\nVITE_SUPABASE_ANON_KEY="%s"\n' "$VITE_SUPABASE_URL" "$VITE_SUPABASE_ANON_KEY" >> "$env_file"
           vercel build --token="$VERCEL_TOKEN"
+          # Сборка без адреса базы тоже «успешна» — ловим это до выкладки.
+          grep -rqF "$VITE_SUPABASE_URL" .vercel/output/static/assets || { echo "::error::В собранном кабинете нет адреса базы — проверьте секреты VITE_SUPABASE_*"; exit 1; }
           url=$(vercel deploy --prebuilt --token="$VERCEL_TOKEN")
           echo "url=$url" >> "$GITHUB_OUTPUT"
           echo "### Превью: $url" >> "$GITHUB_STEP_SUMMARY"
@@ -150,6 +160,8 @@ jobs:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
       PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
     steps:
       - uses: actions/checkout@v4
@@ -170,7 +182,15 @@ jobs:
       - name: Сборка и выкладка
         run: |
           vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+          # Переменные VITE_* в Vercel помечены как секретные, и `vercel pull`
+          # кладёт вместо них заглушку «[SENSITIVE]» — кабинет собрался бы
+          # без базы. Подставляем настоящие значения из секретов GitHub.
+          env_file=.vercel/.env.production.local
+          sed -i '/^VITE_SUPABASE_/d' "$env_file"
+          printf 'VITE_SUPABASE_URL="%s"\nVITE_SUPABASE_ANON_KEY="%s"\n' "$VITE_SUPABASE_URL" "$VITE_SUPABASE_ANON_KEY" >> "$env_file"
           vercel build --prod --token="$VERCEL_TOKEN"
+          # Сборка без адреса базы тоже «успешна» — ловим это до выкладки.
+          grep -rqF "$VITE_SUPABASE_URL" .vercel/output/static/assets || { echo "::error::В собранном кабинете нет адреса базы — проверьте секреты VITE_SUPABASE_*"; exit 1; }
           vercel deploy --prebuilt --prod --env APP_VERSION="${GITHUB_SHA:0:7}" --token="$VERCEL_TOKEN"
 
       # Выкладка «прошла» ещё не значит «работает». Спрашиваем живой
