@@ -15,6 +15,7 @@ begin;
 delete from auth.users where email in ('anna@demo.ru', 'olga@demo.ru');
 
 drop trigger if exists on_auth_user_created on auth.users;
+drop trigger if exists demo_accounts_guard on auth.users;
 
 drop view  if exists public.last_workout_sets;
 
@@ -32,6 +33,7 @@ drop function if exists public.guard_profile_fields();
 drop function if exists public.is_active_member(uuid);
 drop function if exists public.is_admin(uuid);
 drop function if exists public.health_check();
+drop function if exists public.guard_demo_accounts();
 
 drop type if exists material_kind;
 drop type if exists subscription_status;

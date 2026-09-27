@@ -78,6 +78,20 @@ describe('GET /api/health — ответ мониторингу', () => {
     expect(response.headers.get('Cache-Control')).toBe('no-store')
   })
 
+  it('текст ошибки остаётся в журнале и не уходит наружу', async () => {
+    vi.stubEnv('VITE_SUPABASE_URL', URL)
+    vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'key')
+    vi.stubGlobal('fetch', fakeFetch({ health_check: 'network' }))
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const response = await GET()
+    const text = await response.text()
+
+    expect(text).not.toContain('fetch failed')
+    expect(JSON.parse(text).checks.database).toEqual({ ok: false, latencyMs: expect.any(Number) })
+    expect(String(logged.mock.lastCall?.[0])).toContain('fetch failed')
+  })
+
   it('когда всё работает — 200 и статус ok', async () => {
     vi.stubEnv('VITE_SUPABASE_URL', URL)
     vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'key')

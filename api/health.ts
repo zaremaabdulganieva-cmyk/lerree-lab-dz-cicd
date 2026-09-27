@@ -60,6 +60,15 @@ export async function runChecks(
   return { auth, database }
 }
 
+/** То, что уходит наружу: упала ли проверка и за сколько, без текста ошибки. */
+export function publicView(
+  checks: Record<string, CheckResult>,
+): Record<string, Omit<CheckResult, 'error'>> {
+  return Object.fromEntries(
+    Object.entries(checks).map(([name, { ok, latencyMs }]) => [name, { ok, latencyMs }]),
+  )
+}
+
 export async function GET(): Promise<Response> {
   const url = process.env.VITE_SUPABASE_URL ?? ''
   const key = process.env.VITE_SUPABASE_ANON_KEY ?? ''
@@ -81,10 +90,18 @@ export async function GET(): Promise<Response> {
   const checks = await runChecks(url, key)
   const healthy = Object.values(checks).every((check) => check.ok)
 
+  // Полный текст ошибки — только в журнал. Адрес открыт всем, и сообщения
+  // вида «getaddrinfo ENOTFOUND <хост>» наружу не нужны: мониторингу
+  // достаточно знать, какая проверка упала.
   log(healthy ? 'info' : 'error', 'health', healthy ? 'всё в порядке' : 'есть сбой', { checks })
 
   return Response.json(
-    { status: healthy ? 'ok' : 'down', checks, version, time: new Date().toISOString() },
+    {
+      status: healthy ? 'ok' : 'down',
+      checks: publicView(checks),
+      version,
+      time: new Date().toISOString(),
+    },
     { status: healthy ? 200 : 503, headers: noStore },
   )
 }
