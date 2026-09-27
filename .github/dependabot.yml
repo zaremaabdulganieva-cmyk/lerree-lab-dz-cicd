@@ -21,6 +21,12 @@ updates:
       dev-tools:
         dependency-type: development
         update-types: [minor, patch]
+    ignore:
+      # TypeScript 7 — новый компилятор без программного интерфейса
+      # (нет transpileModule / createProgram), а через него Vercel собирает
+      # функцию /api/health. Вернёмся, когда @vercel/node его поддержит.
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
 
   - package-ecosystem: github-actions
     directory: /
