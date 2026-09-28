@@ -38,7 +38,11 @@ export function getSupabase(): SupabaseClient {
         // переживает перезагрузку страницы.
         persistSession: true,
         autoRefreshToken: true,
-        detectSessionInUrl: false,
+        // Вход через Google возвращает участницу с одноразовым кодом в
+        // адресе — клиент сам меняет его на сессию. PKCE: без секрета,
+        // оставшегося в этом браузере, перехваченный код бесполезен.
+        flowType: 'pkce',
+        detectSessionInUrl: true,
         storageKey: 'lerree-demo-auth',
       },
     })

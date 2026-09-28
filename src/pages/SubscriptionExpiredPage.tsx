@@ -12,6 +12,11 @@ export default function SubscriptionExpiredPage() {
     <div className="flex min-h-dvh items-center justify-center bg-bg px-4 py-10">
       <Card className="w-full max-w-md text-center">
         <h1 className="text-xl font-bold text-ink">Подписка закончилась</h1>
+        {user?.email && (
+          <p className="mt-1 text-xs text-muted">
+            Вы вошли как <span className="font-semibold text-ink">{user.email}</span>
+          </p>
+        )}
         <p className="mt-2 text-sm text-muted">
           {user
             ? `${user.name}, доступ был открыт до ${formatDate(user.subscriptionUntil)}.`

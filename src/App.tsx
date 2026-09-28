@@ -5,6 +5,7 @@ import LoginPage from '@/pages/LoginPage'
 import MaterialsPage from '@/pages/MaterialsPage'
 import MeasurementsPage from '@/pages/MeasurementsPage'
 import NotFoundPage from '@/pages/NotFoundPage'
+import PrivacyPage from '@/pages/PrivacyPage'
 import ProgramsPage from '@/pages/ProgramsPage'
 import SubscriptionExpiredPage from '@/pages/SubscriptionExpiredPage'
 import WorkoutPage from '@/pages/WorkoutPage'
@@ -16,6 +17,7 @@ export default function App() {
       <Route path="/" element={<Navigate to="/programs" replace />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/subscription" element={<SubscriptionExpiredPage />} />
+      <Route path="/privacy" element={<PrivacyPage />} />
 
       <Route element={<RequireAuth />}>
         <Route element={<AppLayout />}>

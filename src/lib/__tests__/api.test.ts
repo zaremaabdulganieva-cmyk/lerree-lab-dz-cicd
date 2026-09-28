@@ -20,6 +20,7 @@ interface TableResult {
 let calls: Array<{ table: string; op: string; payload?: unknown }> = []
 let tables: Record<string, TableResult> = {}
 let session: { user: { id: string; email: string } } | null = null
+let oauthError: unknown = null
 
 function builder(table: string) {
   const result = () => tables[table] ?? { data: [], error: null }
@@ -57,6 +58,10 @@ const fakeClient = {
     signInWithPassword: () =>
       Promise.resolve({ data: { user: session?.user ?? null }, error: null }),
     signOut: () => Promise.resolve({ error: null }),
+    signInWithOAuth: (options: unknown) => {
+      calls.push({ table: 'auth', op: 'oauth', payload: options })
+      return Promise.resolve({ data: {}, error: oauthError })
+    },
   },
 }
 
@@ -65,8 +70,15 @@ vi.mock('@/lib/supabase', () => ({
   isConfigured: () => true,
 }))
 
-const { fetchMeasurements, fetchProgram, saveMeasurement, saveSets, setOffline, fetchSavedSets } =
-  await import('@/lib/api')
+const {
+  fetchMeasurements,
+  fetchProgram,
+  loginWithGoogle,
+  saveMeasurement,
+  saveSets,
+  setOffline,
+  fetchSavedSets,
+} = await import('@/lib/api')
 
 beforeEach(() => {
   calls = []
@@ -244,5 +256,36 @@ describe('ошибки сервера', () => {
 
     await expect(fetchSavedSets()).rejects.toMatchObject({ kind: 'network' })
     expect(calls).toHaveLength(0)
+  })
+})
+
+describe('loginWithGoogle — вход через Google', () => {
+  beforeEach(() => {
+    calls = []
+    oauthError = null
+  })
+
+  it('просит Supabase вход через Google с возвратом на /login и выбором аккаунта', async () => {
+    vi.spyOn(console, 'info').mockImplementation(() => {})
+    await loginWithGoogle()
+
+    expect(calls).toContainEqual({
+      table: 'auth',
+      op: 'oauth',
+      payload: {
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/login`,
+          queryParams: { prompt: 'select_account' },
+        },
+      },
+    })
+  })
+
+  it('клиент не смог начать вход (нет связи) — понятная ошибка, а не падение', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    oauthError = new TypeError('Failed to fetch')
+
+    await expect(loginWithGoogle()).rejects.toMatchObject({ kind: 'network' })
   })
 })

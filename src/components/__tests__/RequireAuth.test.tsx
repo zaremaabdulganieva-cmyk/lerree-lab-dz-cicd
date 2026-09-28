@@ -26,6 +26,7 @@ function renderAt(path: string, auth: Partial<AuthContextValue>) {
     loading: false,
     error: null,
     signIn: vi.fn(),
+    signInWithGoogle: vi.fn(),
     signOut: vi.fn(),
     ...auth,
   }
