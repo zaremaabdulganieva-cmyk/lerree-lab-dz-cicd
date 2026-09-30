@@ -6,14 +6,15 @@
   --color-bg: #faf5f7;
   --color-card: #ffffff;
   --color-ink: #3a2e3a;
-  --color-muted: #9a8a98;
+  --color-muted: #736472; /* было #9a8a98 — контраст 3,0, ниже нормы WCAG AA 4,5 */
   --color-line: #eee3ea;
-  --color-accent: #a48bc1;
+  --color-accent: #8467a8; /* было #a48bc1 — белый текст на кнопке читался плохо (3,0) */
   --color-accent-soft: #ede4f2;
   --color-warm: #d9a8b8;
   --color-warm-soft: #f5e4eb;
 
-  --font-sans: 'Manrope', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-sans:
+    'Manrope Variable', 'Manrope', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
 
   --shadow-card: 0 1px 2px rgba(58, 46, 58, 0.04), 0 8px 24px rgba(164, 139, 193, 0.1);
 }

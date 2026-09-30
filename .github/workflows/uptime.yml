@@ -1,0 +1,95 @@
+# =====================================================================
+# Внешний мониторинг: каждые 15 минут спрашиваем боевой адрес,
+# жив ли кабинет (/api/health проверяет и вход, и базу).
+#
+# Оповещения:
+#   сбой       → прогон красный (GitHub присылает письмо о падении)
+#                + открывается issue «Сайт недоступен» с ответом сервера;
+#   восстановление → issue закрывается комментарием «снова работает».
+# Пока issue открыт, новые сбои дописываются в него комментарием —
+# одна авария = одно письмо-тема, а не поток писем.
+#
+# Ограничения GitHub: расписание может запаздывать на несколько минут,
+# а при 60 днях без коммитов расписание выключается само.
+# =====================================================================
+
+name: Мониторинг
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  # Ручной запуск. Поле url — чтобы проверить оповещение, не ломая
+  # сайт: укажите заведомо несуществующий адрес.
+  workflow_dispatch:
+    inputs:
+      url:
+        description: 'Какой адрес проверять (пусто — боевой)'
+        required: false
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: uptime
+  cancel-in-progress: false
+
+jobs:
+  health:
+    name: Проверка /api/health
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      PRODUCTION_URL: ${{ inputs.url || vars.PRODUCTION_URL }}
+    steps:
+      # Три попытки с паузой: один сетевой сбой по дороге — ещё не авария.
+      - name: Запрос к боевому адресу
+        id: check
+        run: |
+          for attempt in 1 2 3; do
+            code=$(curl -s -o body.json -w '%{http_code}' --max-time 15 "$PRODUCTION_URL/api/health" || echo 000)
+            body=$(cat body.json 2>/dev/null || true)
+            echo "Попытка $attempt: HTTP $code $body"
+            if [ "$code" = "200" ] && echo "$body" | grep -q '"status":"ok"'; then
+              echo "ok=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            sleep 20
+          done
+          echo "ok=false" >> "$GITHUB_OUTPUT"
+          {
+            echo 'report<<EOF'
+            echo "HTTP $code"
+            echo "$body"
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Оповещение и учёт аварии
+        uses: actions/github-script@v9
+        env:
+          OK: ${{ steps.check.outputs.ok }}
+          REPORT: ${{ steps.check.outputs.report }}
+        with:
+          script: |
+            const title = 'Сайт недоступен: /api/health не отвечает ok'
+            const { owner, repo } = context.repo
+            const open = await github.rest.issues.listForRepo({ owner, repo, state: 'open' })
+            const incident = open.data.find((issue) => issue.title === title)
+            const now = new Date().toISOString().replace('T', ' ').slice(0, 16) + ' UTC'
+            const run = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`
+
+            if (process.env.OK === 'true') {
+              if (incident) {
+                await github.rest.issues.createComment({ owner, repo, issue_number: incident.number, body: `✅ ${now} — снова работает. [Прогон](${run})` })
+                await github.rest.issues.update({ owner, repo, issue_number: incident.number, state: 'closed' })
+              }
+              return
+            }
+
+            const body = `❌ ${now} — ${process.env.PRODUCTION_URL}/api/health\n\n\`\`\`\n${process.env.REPORT}\n\`\`\`\n[Прогон](${run})`
+            if (incident) {
+              await github.rest.issues.createComment({ owner, repo, issue_number: incident.number, body })
+            } else {
+              await github.rest.issues.create({ owner, repo, title, body })
+            }
+            core.setFailed('Сайт не прошёл проверку здоровья')

@@ -8,6 +8,11 @@ export default defineConfig(() => ({
   // Vercel отдаёт приложение с корня домена — префикс пути не нужен.
   base: '/',
   plugins: [react(), tailwindcss()],
+  // Версия сборки попадает в каждую запись журнала: по ней ошибку из
+  // браузера участницы сверяют с конкретным коммитом.
+  define: {
+    __APP_VERSION__: JSON.stringify((process.env.GITHUB_SHA ?? 'local').slice(0, 7)),
+  },
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
