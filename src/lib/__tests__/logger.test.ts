@@ -17,8 +17,9 @@ describe('log — журнал браузера', () => {
       scope: 'auth',
       message: 'сессия восстановлена',
       details: 'user-1',
-      version: 'local',
     })
+    // В CI это короткий хеш коммита, на своём компьютере — 'local'.
+    expect(line.version).toMatch(/^(local|[0-9a-f]{7})$/)
     expect(line.session).toMatch(/^[a-z0-9]+$/)
     expect(new Date(line.time).toString()).not.toBe('Invalid Date')
   })
