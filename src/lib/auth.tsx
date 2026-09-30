@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { fetchProfile, login as apiLogin, logout as apiLogout } from '@/lib/api'
+import {
+  fetchProfile,
+  login as apiLogin,
+  loginWithGoogle as apiLoginWithGoogle,
+  logout as apiLogout,
+} from '@/lib/api'
 import { AuthContext, type AuthContextValue } from '@/lib/auth-context'
 import { toApiError } from '@/lib/errors'
 import { log } from '@/lib/logger'
@@ -88,6 +93,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null)
   }, [])
 
+  const signInWithGoogle = useCallback(async () => {
+    await apiLoginWithGoogle()
+  }, [])
+
   const signOut = useCallback(async () => {
     try {
       await apiLogout()
@@ -99,8 +108,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const value = useMemo<AuthContextValue>(
-    () => ({ user, loading, error, signIn, signOut }),
-    [user, loading, error, signIn, signOut],
+    () => ({ user, loading, error, signIn, signInWithGoogle, signOut }),
+    [user, loading, error, signIn, signInWithGoogle, signOut],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

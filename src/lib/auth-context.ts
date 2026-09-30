@@ -9,6 +9,8 @@ export interface AuthContextValue {
   /** Ошибка восстановления сессии (нет связи, приложение собрано без настроек). */
   error: string | null
   signIn: (email: string, password: string) => Promise<void>
+  /** Уводит на страницу Google; вход завершится после возврата на /login. */
+  signInWithGoogle: () => Promise<void>
   signOut: () => Promise<void>
 }
 

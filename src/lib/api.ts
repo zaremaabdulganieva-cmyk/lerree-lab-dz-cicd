@@ -11,6 +11,7 @@
  */
 
 import { ApiError, toApiError } from '@/lib/errors'
+import { oauthRedirectUrl } from '@/lib/oauth'
 import { log } from '@/lib/logger'
 import { getSupabase } from '@/lib/supabase'
 import type {
@@ -226,6 +227,27 @@ export async function login(email: string, password: string): Promise<User> {
   log.info('api.login', 'вход выполнен', user.id)
   const profile = await fetchProfile(user.id)
   return { ...profile, email: user.email ?? email }
+}
+
+/**
+ * Вход через Google. Уводит участницу на страницу Google — дальше
+ * приложение продолжится уже после возврата на /login (см. lib/oauth.ts).
+ */
+export async function loginWithGoogle(): Promise<void> {
+  guardNetwork()
+
+  const { error } = await getSupabase().auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: oauthRedirectUrl(window.location.origin),
+      // Всегда показывать выбор аккаунта: на общем компьютере иначе
+      // молча войдёт тот, кто входил в Google последним.
+      queryParams: { prompt: 'select_account' },
+    },
+  })
+
+  if (error) throw toApiError(error, 'api.loginWithGoogle')
+  log.info('api.loginWithGoogle', 'переход на страницу Google')
 }
 
 export async function logout(): Promise<void> {
