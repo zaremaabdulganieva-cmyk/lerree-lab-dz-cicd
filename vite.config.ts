@@ -13,6 +13,12 @@ export default defineConfig(() => ({
   define: {
     __APP_VERSION__: JSON.stringify((process.env.GITHUB_SHA ?? 'local').slice(0, 7)),
   },
+  build: {
+    // Мелкие файлы Vite встраивает прямо в CSS как data:-адрес. Для шрифтов
+    // это ломается о CSP (font-src 'self' не пускает data:) — поэтому
+    // шрифты всегда отдельными файлами, остальное — как по умолчанию.
+    assetsInlineLimit: (file: string) => (file.endsWith('.woff2') ? false : undefined),
+  },
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
