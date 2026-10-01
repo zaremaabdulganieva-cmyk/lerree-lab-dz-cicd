@@ -80,8 +80,25 @@ export function trackPage(path: string, referrer?: string): void {
   })
 }
 
-/** Цель. Параметры — то, что помогает разобраться, без личных данных. */
-export function reachGoal(goal: Goal, params?: Record<string, string | number>): void {
-  if (!enabled || !window.ym) return
-  window.ym(METRIKA_ID, 'reachGoal', goal, params)
+/** Сколько ждать подтверждения от Метрики, прежде чем уйти со страницы. */
+const GOAL_TIMEOUT_MS = 300
+
+/**
+ * Цель. Параметры — то, что помогает разобраться, без личных данных.
+ *
+ * Промис нужен, когда сразу после цели браузер уходит на другой сайт
+ * (вход через Google): иначе запрос в Метрику оборвётся вместе со
+ * страницей. Ждём подтверждения, но не дольше 300 мс — если Метрику
+ * заблокировал блокировщик рекламы, участница этого не заметит.
+ */
+export function reachGoal(goal: Goal, params?: Record<string, string | number>): Promise<void> {
+  if (!enabled || !window.ym) return Promise.resolve()
+  const ym = window.ym
+  return new Promise((resolve) => {
+    const timer = window.setTimeout(resolve, GOAL_TIMEOUT_MS)
+    ym(METRIKA_ID, 'reachGoal', goal, params ?? {}, () => {
+      window.clearTimeout(timer)
+      resolve()
+    })
+  })
 }

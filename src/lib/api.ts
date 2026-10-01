@@ -226,7 +226,7 @@ export async function login(email: string, password: string): Promise<User> {
   if (!user) throw new ApiError('auth', 'Не удалось войти. Попробуйте ещё раз.', 'пустой ответ')
 
   log.info('api.login', 'вход выполнен', user.id)
-  reachGoal('login_password')
+  void reachGoal('login_password')
   const profile = await fetchProfile(user.id)
   return { ...profile, email: user.email ?? email }
 }
@@ -237,6 +237,9 @@ export async function login(email: string, password: string): Promise<User> {
  */
 export async function loginWithGoogle(): Promise<void> {
   guardNetwork()
+  // Цель отправляем до ухода на Google и ждём доставки — после
+  // редиректа страница закроется вместе с недоотправленным запросом.
+  await reachGoal('login_google_start')
 
   const { error } = await getSupabase().auth.signInWithOAuth({
     provider: 'google',
@@ -250,7 +253,6 @@ export async function loginWithGoogle(): Promise<void> {
 
   if (error) throw toApiError(error, 'api.loginWithGoogle')
   log.info('api.loginWithGoogle', 'переход на страницу Google')
-  reachGoal('login_google_start')
 }
 
 export async function logout(): Promise<void> {
@@ -383,7 +385,7 @@ export async function saveMeasurement(input: MeasurementInput): Promise<Measurem
   if (error) throw toApiError(error, 'api.saveMeasurement')
 
   log.info('api.saveMeasurement', 'замер сохранён', input.date)
-  reachGoal('measurement_saved')
+  void reachGoal('measurement_saved')
   return fetchMeasurements()
 }
 
@@ -461,6 +463,6 @@ export async function saveSets(exerciseId: string, sets: SetEntry[]): Promise<Sa
   }
 
   log.info('api.saveSets', `сохранено подходов: ${sets.length}`, exerciseId)
-  reachGoal('workout_sets_saved', { sets: sets.length })
+  void reachGoal('workout_sets_saved', { sets: sets.length })
   return fetchSavedSets()
 }

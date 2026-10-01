@@ -28,7 +28,7 @@ export default function SubscriptionExpiredPage() {
         <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-center">
           <Button
             onClick={() => {
-              reachGoal('subscription_extend_click')
+              void reachGoal('subscription_extend_click')
               window.alert('В демо-версии оплата не подключена.')
             }}
           >
