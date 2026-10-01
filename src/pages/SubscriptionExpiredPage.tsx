@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom'
+import { reachGoal } from '@/lib/analytics'
 import { useAuth } from '@/lib/auth-context'
 import { Button, Card } from '@/components/ui'
 import { formatDate } from '@/lib/format'
@@ -25,7 +26,12 @@ export default function SubscriptionExpiredPage() {
           сохранён.
         </p>
         <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-center">
-          <Button onClick={() => window.alert('В демо-версии оплата не подключена.')}>
+          <Button
+            onClick={() => {
+              reachGoal('subscription_extend_click')
+              window.alert('В демо-версии оплата не подключена.')
+            }}
+          >
             Продлить подписку
           </Button>
           <Button
