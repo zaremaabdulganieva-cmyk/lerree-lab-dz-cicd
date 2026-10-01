@@ -1,8 +1,9 @@
-import { lazy, Suspense } from 'react'
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { lazy, Suspense, useEffect, useRef } from 'react'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import AppLayout from '@/components/AppLayout'
 import RequireAuth from '@/components/RequireAuth'
 import { LoadingState } from '@/components/states'
+import { trackPage } from '@/lib/analytics'
 import LoginPage from '@/pages/LoginPage'
 
 // Экран входа нужен сразу, остальные разделы грузятся, только когда
@@ -16,6 +17,19 @@ const ProgramsPage = lazy(() => import('@/pages/ProgramsPage'))
 const SubscriptionExpiredPage = lazy(() => import('@/pages/SubscriptionExpiredPage'))
 const WorkoutPage = lazy(() => import('@/pages/WorkoutPage'))
 
+/** Сообщает Метрике о каждой смене раздела — сама она переходов внутри кабинета не видит. */
+function PageTracker() {
+  const { pathname } = useLocation()
+  const previous = useRef<string | undefined>(undefined)
+
+  useEffect(() => {
+    trackPage(pathname, previous.current)
+    previous.current = pathname
+  }, [pathname])
+
+  return null
+}
+
 /** Карта маршрутов кабинета: публичные экраны и защищённая зона под RequireAuth. */
 export default function App() {
   return (
@@ -26,6 +40,7 @@ export default function App() {
         </div>
       }
     >
+      <PageTracker />
       <Routes>
         <Route path="/" element={<Navigate to="/programs" replace />} />
         <Route path="/login" element={<LoginPage />} />

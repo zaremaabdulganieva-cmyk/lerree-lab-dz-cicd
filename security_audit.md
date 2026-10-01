@@ -43,6 +43,8 @@
 **Исправление** (`vercel.json`, раздел `headers`):
 - `Content-Security-Policy` — скрипты только свои. Стили — свои и Google Fonts, шрифты — с `fonts.gstatic.com`. Запросы — только к себе и в Supabase. Встраивание запрещено (`frame-ancestors 'none'`), плагины тоже (`object-src 'none'`).
 - `X-Frame-Options: DENY` — защита от кликджекинга для старых браузеров.
+
+**Изменение 01.10 (Яндекс.Метрика).** Чтобы работали Вебвизор и карта кликов, Метрика открывает сайт во фрейме на своём домене. Поэтому `frame-ancestors 'none'` заменён на короткий список доменов Метрики (`metrika.yandex.ru`, `metrika.yandex.com`, `*.webvisor.com`), а `X-Frame-Options: DENY` убран: он не умеет «разрешить только этим», а современные браузеры при наличии `frame-ancestors` всё равно смотрят на него. Защита от кликджекинга сохраняется: встроить сайт может только Метрика. В `script-src`, `img-src`, `connect-src` добавлены только адреса Метрики по [документации Яндекса](https://yandex.ru/support/metrica/code/install-counter-csp.html). Inline-скриптов по-прежнему нет: счётчик загружается из `src/lib/analytics.ts`, поэтому nonce не нужен.
 - `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`.
 - `Permissions-Policy` — выключены камера, микрофон, геолокация, оплата.
 - HSTS Vercel добавляет сам (`max-age=63072000; includeSubDomains; preload`).

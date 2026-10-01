@@ -5,11 +5,17 @@ import {
   loginWithGoogle as apiLoginWithGoogle,
   logout as apiLogout,
 } from '@/lib/api'
+import { reachGoal } from '@/lib/analytics'
 import { AuthContext, type AuthContextValue } from '@/lib/auth-context'
 import { toApiError } from '@/lib/errors'
 import { log } from '@/lib/logger'
 import { getSupabase, isConfigured } from '@/lib/supabase'
 import type { User } from '@/lib/types'
+
+// Вернулась ли участница от Google с кодом входа. Запоминаем при загрузке
+// модуля: клиент Supabase, поменяв код на сессию, убирает его из адреса.
+const returnedFromOAuth =
+  typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('code')
 
 /**
  * Вход через Supabase Auth.
@@ -59,6 +65,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!active) return
         setUser({ ...profile, email: session.user.email ?? '' })
         log.info('auth', 'сессия восстановлена', session.user.id)
+        if (returnedFromOAuth && session.user.app_metadata?.provider === 'google') {
+          reachGoal('login_google_success')
+        }
       } catch (cause: unknown) {
         if (!active) return
         setError(toApiError(cause, 'auth.restore').message)

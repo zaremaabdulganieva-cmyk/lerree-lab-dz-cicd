@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { DEMO_ACCOUNTS, DEMO_PASSWORD } from '@/lib/demo-accounts'
+import { reachGoal } from '@/lib/analytics'
 import { log } from '@/lib/logger'
 import { readOAuthError } from '@/lib/oauth'
 import { useAuth } from '@/lib/auth-context'
@@ -27,6 +28,7 @@ export default function LoginPage() {
     const oauthError = readOAuthError(window.location.search, window.location.hash)
     if (!oauthError) return
     log.warn('auth.google', 'вход через Google не удался', oauthError.technical)
+    reachGoal('login_google_error', { code: oauthError.technical.split(' | ')[0] })
     window.history.replaceState(null, '', window.location.pathname)
   }, [])
 
@@ -52,6 +54,7 @@ export default function LoginPage() {
       await signIn(email, password)
       navigate('/programs', { replace: true })
     } catch (cause: unknown) {
+      reachGoal('login_error')
       setError(cause instanceof Error ? cause.message : 'Не удалось войти')
     } finally {
       setPending(false)
