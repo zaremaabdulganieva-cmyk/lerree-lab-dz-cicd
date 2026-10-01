@@ -28,7 +28,7 @@ export default function LoginPage() {
     const oauthError = readOAuthError(window.location.search, window.location.hash)
     if (!oauthError) return
     log.warn('auth.google', 'вход через Google не удался', oauthError.technical)
-    reachGoal('login_google_error', { code: oauthError.technical.split(' | ')[0] })
+    void reachGoal('login_google_error', { code: oauthError.technical.split(' | ')[0] })
     window.history.replaceState(null, '', window.location.pathname)
   }, [])
 
@@ -54,7 +54,7 @@ export default function LoginPage() {
       await signIn(email, password)
       navigate('/programs', { replace: true })
     } catch (cause: unknown) {
-      reachGoal('login_error')
+      void reachGoal('login_error')
       setError(cause instanceof Error ? cause.message : 'Не удалось войти')
     } finally {
       setPending(false)

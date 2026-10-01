@@ -66,7 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser({ ...profile, email: session.user.email ?? '' })
         log.info('auth', 'сессия восстановлена', session.user.id)
         if (returnedFromOAuth && session.user.app_metadata?.provider === 'google') {
-          reachGoal('login_google_success')
+          void reachGoal('login_google_success')
         }
       } catch (cause: unknown) {
         if (!active) return

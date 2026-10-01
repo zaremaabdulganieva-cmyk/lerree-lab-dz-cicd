@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it, vi } from 'vitest'
 
 /**
  * Метрика: на боевом адресе — счётчик и цели, везде остальном — тишина.
@@ -50,12 +50,27 @@ describe('Метрика на боевом адресе', () => {
   })
 
   it('цель уходит с параметрами, без личных данных', () => {
-    reachGoal('workout_sets_saved', { sets: 3 })
-    expect(window.ym!.a!.at(-1)).toEqual([
+    void reachGoal('workout_sets_saved', { sets: 3 })
+    expect(window.ym!.a!.at(-1)!.slice(0, 4)).toEqual([
       METRIKA_ID,
       'reachGoal',
       'workout_sets_saved',
       { sets: 3 },
     ])
+  })
+
+  it('перед уходом на другой сайт ждёт подтверждения Метрики', async () => {
+    const sent = reachGoal('login_google_start')
+    const callback = window.ym!.a!.at(-1)![4] as () => void
+    callback()
+    await expect(sent).resolves.toBeUndefined()
+  })
+
+  it('Метрика не ответила (блокировщик) — через 300 мс всё равно идём дальше', async () => {
+    vi.useFakeTimers()
+    const sent = reachGoal('login_google_start')
+    vi.advanceTimersByTime(300)
+    await expect(sent).resolves.toBeUndefined()
+    vi.useRealTimers()
   })
 })
