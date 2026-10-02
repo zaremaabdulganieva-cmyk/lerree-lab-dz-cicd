@@ -1,87 +1,154 @@
-# Lerree Lab — кабинет участницы: CI/CD и интеграции
+# Lerree Lab — личный кабинет участницы фитнес-клуба
 
-ДЗ 6 курса про ИИ-агентов: **«Настройка CI/CD и интеграция сервисов»**.
+Итоговый проект курса «AI-агенты в разработке»: **полнофункциональное веб-приложение, сделанное
+с AI-агентом на всех этапах** — от анализа конкурентов до продакшна. Инструмент — Claude Code.
 
-Личный кабинет участницы фитнес-клуба (React + Supabase) из [ДЗ 5](https://github.com/zaremaabdulganieva-cmyk/lerree-lab-dz-backend). Здесь он получил:
+**Сайт:** <https://lerree-lab-dz-cicd.vercel.app> ·
+**Проверка здоровья:** [/api/health](https://lerree-lab-dz-cicd.vercel.app/api/health)
 
-- автоматическую выкладку;
-- аудит безопасности;
-- вход через Google;
-- Яндекс.Метрику;
-- мониторинг;
-- журнал в JSON.
+Демо-доступы, пароль для обоих `demo1234`:
 
-Проект учебный, содержимое вымышленное. Боевой Lerree Lab с платным контентом клуба живёт в закрытом репозитории.
+- `anna@demo.ru` — подписка активна, виден весь кабинет;
+- `olga@demo.ru` — подписка истекла, виден экран продления.
 
-**Сайт:** <https://lerree-lab-dz-cicd.vercel.app> · **Проверка здоровья:** [/api/health](https://lerree-lab-dz-cicd.vercel.app/api/health)
+Вход через Google работает в режиме Testing (только для тестировщиков из Google Console), поэтому
+для проверки — демо-пароль.
 
-Вход: `anna@demo.ru` (подписка активна) или `olga@demo.ru` (подписка истекла), пароль `demo1234`. Вход через Google работает в режиме Testing — только для тестировщиков из списка Google Console. Скриншот проверки — в [документации](integration_documentation.md#3-вход-через-google-oauth-20).
+Проект учебный, содержимое вымышленное. Боевой Lerree Lab с платным контентом клуба живёт в
+закрытом репозитории; здесь — его полноценная демо-копия на отдельной базе.
 
 ---
 
-## Документы задания
+## Идея
 
-- **[integration_documentation.md](integration_documentation.md)** — CI/CD, вход через Google, Метрика, мониторинг, логирование, оптимизация, как использовался ИИ, все переменные и секреты
-- **[security_audit.md](security_audit.md)** — аудит по OWASP Top 10: 6 находок, исправления, рекомендации
-- **[docs/log-analysis/](docs/log-analysis/README.md)** — анализ логов с ИИ: промпты, тестовый инцидент, разбор
+Закрытый онлайн-клуб тренера раздаёт тренировки в Telegram и PDF: участницы теряют рабочие веса,
+ищут разборы техники в ленте и ведут замеры в заметках, а доступ после окончания подписки
+снимается вручную.
 
-## Что сделано — по шагам задания
+Lerree Lab собирает всё в одном кабинете с доступом строго по активной подписке: программа на
+неделю, дневник подходов с подсказкой «что было в прошлый раз», личные замеры, библиотека
+материалов с поиском. Аудитория — женщины 25–45 лет, тренируются с телефона в зале.
 
-| Шаг               | Итог                                                                                                                       |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| 1. CI/CD          | GitHub Actions → Vercel. Проверки качества, превью на каждый PR, выкладка из `main`, проверка `/api/health` после выкладки |
-| 2. Безопасность   | 2 высоких, 1 средняя, 3 низких находки — все исправлены; CSP и заголовки; Dependabot                                       |
-| 3. OAuth2         | Google через Supabase Auth, PKCE; понятные ошибки; проверено живым аккаунтом                                                |
-| 4. Аналитика      | Яндекс.Метрика 113255243: просмотры разделов кабинета и 8 целей, Вебвизор                                                   |
-| 5. Платежи        | не делались (шаг необязательный)                                                                                           |
-| 6. Мониторинг     | `/api/health` (вход + база, 200/503); проверка по расписанию с оповещением через issue                                      |
-| 7. Логирование    | JSON, уровни info/warn/error; ошибки браузера собираются в журнал Vercel; анализ логов с ИИ                                  |
-| 8. Оптимизация    | Lighthouse: Performance 78–86 → 99, Accessibility 91 → 100, SEO 91 → 100, первое содержимое 3,2–3,9 → 1,6 с               |
-| 9. Документация   | этот README и документы выше                                                                                               |
+Чем отличается от FitStars, Trainerize, Hevy и других — в [анализе конкурентов](competitor_analysis.md).
 
-## Стек
+## Возможности
 
-- **Интерфейс:** React 19, TypeScript, Tailwind 4, React Router, Vite
-- **База и вход:** Supabase — PostgreSQL с политиками RLS, Auth (пароль + Google)
-- **Хостинг:** Vercel, плюс две серверные функции: `/api/health`, `/api/log`
-- **CI/CD:** GitHub Actions, Dependabot
-- **Проверки:** Prettier, oxlint, TypeScript, Vitest (92 теста), `npm audit`
-- **Аналитика:** Яндекс.Метрика
+- **Вход** — пароль или Google (OAuth 2.0, PKCE); без активной подписки — экран продления.
+- **Программы** — план на неделю, прогресс по программе, тренировки по дням.
+- **Тренировка** — вес и повторы по каждому подходу, подсказка прошлой тренировки, проверка
+  ввода, черновик не теряется при обрыве связи.
+- **Материалы** — статьи, рецепты, подкасты, эфиры; поиск по названию, описанию и тегам.
+- **Замеры** — полный CRUD: добавить, посмотреть динамику, исправить, удалить с подтверждением.
+  Видны только самой участнице (защита на уровне базы).
+- **Состояния** — загрузка, пустой список, ошибка с кнопкой «Попробовать снова»; ошибки сервера
+  переведены на понятный язык. Переключатель «Сеть» в шапке имитирует обрыв связи для проверки.
 
-## Быстрый старт
+## Скриншоты
+
+| Вход | Программа на неделю |
+| --- | --- |
+| ![Вход](docs/screenshots/final/01-login-desktop.jpg) | ![Программы](docs/screenshots/final/02-programs-desktop.jpg) |
+| **Тренировка: подходы и «в прошлый раз»** | **Материалы: поиск** |
+| ![Тренировка](docs/screenshots/final/03-workout-desktop.jpg) | ![Материалы](docs/screenshots/final/04-materials-search-desktop.jpg) |
+| **Замеры: исправление** | **Замеры: удаление с подтверждением** |
+| ![Исправление замера](docs/screenshots/final/07-measurements-edit-desktop.jpg) | ![Удаление замера](docs/screenshots/final/06-measurements-delete-confirm-desktop.jpg) |
+| **Подписка закончилась** | **Ошибка: нет связи** |
+| ![Подписка](docs/screenshots/final/08-subscription-expired-desktop.jpg) | ![Ошибка](docs/screenshots/final/09-error-offline-desktop.jpg) |
+
+Телефон (390 × 844):
+
+| Вход | Программа | Тренировка | Материалы | Замеры | Подписка |
+| --- | --- | --- | --- | --- | --- |
+| ![Вход](docs/screenshots/final/m01-login-mobile.jpg) | ![Программа](docs/screenshots/final/m02-programs-mobile.jpg) | ![Тренировка](docs/screenshots/final/m03-workout-mobile.jpg) | ![Материалы](docs/screenshots/final/m04-materials-mobile.jpg) | ![Замеры](docs/screenshots/final/m05-measurements-edit-mobile.jpg) | ![Подписка](docs/screenshots/final/m06-subscription-expired-mobile.jpg) |
+
+## Технологии
+
+- **Frontend:** React 19, TypeScript, Tailwind CSS 4, React Router 7, Vite
+- **Backend:** Supabase — PostgreSQL (7 связанных таблиц, RLS на всех), Auth (пароль + Google),
+  PostgREST как API; серверные функции Vercel `/api/health` и `/api/log`
+- **Инфраструктура:** Vercel, GitHub Actions (CI/CD), Dependabot, Docker (образ приложения на
+  nginx + песочница PostgreSQL)
+- **Качество:** Vitest + Testing Library (102 теста, покрытие ~89 %), oxlint, Prettier,
+  TypeScript strict, `npm audit`
+- **Сервисы:** Google OAuth, Яндекс.Метрика (просмотры + 8 целей), мониторинг через GitHub Actions
+
+## Как закрыты требования проекта
+
+- **3+ экрана, адаптивность, формы, загрузка и ошибки** — 8 экранов (вход, программы,
+  тренировка, материалы, замеры, подписка, политика конфиденциальности, 404), mobile-first.
+- **БД из 3+ связанных таблиц** — `profiles`, `programs`, `workouts`, `exercises`, `materials`,
+  `measurements`, `workout_sets` ([схема](supabase/migrations/001_init_schema.sql)).
+- **API с CRUD** — [`src/lib/api.ts`](src/lib/api.ts): замеры — создать, прочитать, изменить,
+  удалить; подходы — записать и перезаписать.
+- **Аутентификация** — Supabase Auth, сессия, защищённые маршруты, доступ по подписке.
+- **Валидация** — в форме ([`validation.ts`](src/lib/validation.ts)) и в базе (`check`,
+  `unique`, RLS).
+- **Дополнительные функции (нужно 2):** OAuth2 через Google; аналитика Яндекс.Метрика; поиск по
+  материалам; интеграция с внешними API (Google, Метрика); уведомления о падении сайта (issue и
+  письмо GitHub).
+- **Деплой и CI/CD** — автоматическая выкладка из `main`, превью на каждый PR.
+- **Docker** — [`Dockerfile`](Dockerfile), образ собирается и проверяется в CI.
+
+## Запуск
+
+Нужны Node.js 22 и проект Supabase ([как создать и применить миграции](docs/setup-supabase.md)).
 
 ```bash
 npm install
-cp .env.example .env    # адрес проекта Supabase и публичный ключ
-npm run dev
+cp .env.example .env    # VITE_SUPABASE_URL и VITE_SUPABASE_ANON_KEY своего проекта
+npm run dev             # http://localhost:5173
 ```
 
-Проверки, как в CI (форматирование, линтер, типы, тесты, уязвимости):
+Все проверки, как в CI — форматирование, линтер, типы, тесты, уязвимости:
 
 ```bash
 npm run check
 ```
 
-Где взять адрес и ключ — [docs/setup-supabase.md](docs/setup-supabase.md). Как поднять выкладку в своём аккаунте Vercel — [integration_documentation.md, раздел 1](integration_documentation.md#как-повторить).
+### В Docker
 
-## Что внутри
-
-```
-.github/workflows/ci-cd.yml   проверки → превью / выкладка → проверка здоровья
-.github/workflows/uptime.yml  мониторинг по расписанию с оповещением через issue
-.github/dependabot.yml        обновления зависимостей группами
-api/health.ts                 проверка здоровья: вход и база
-api/log.ts                    приёмник ошибок из браузера → журнал Vercel
-src/lib/supabase.ts           подключение: только auth-js и postgrest-js
-src/lib/oauth.ts              разбор возврата от Google
-src/lib/analytics.ts          Яндекс.Метрика: просмотры и цели
-src/lib/logger.ts             журнал браузера в JSON
-supabase/migrations/          схема, политики доступа, исправления аудита (006)
-scripts/summarize-logs.mjs    сводка журнала перед разбором ИИ
-scripts/check-rls.sql         12 проверок политик доступа на живой базе
-vercel.json                   CSP и заголовки безопасности
+```bash
+docker compose --profile app up --build   # приложение на http://localhost:8080
+docker compose up -d                      # только песочница PostgreSQL для миграций
 ```
 
-## Как использовался ИИ
+Выкладка в свой аккаунт Vercel — [integration_documentation.md, раздел 1](integration_documentation.md#как-повторить).
 
-Всё сделано с **Claude Code**: автор ставит задачу и подтверждает каждый шаг, ИИ пишет код, конфигурации и документы и проверяет их на живом сайте и базе. Пуш и действия в личных кабинетах (Google, Supabase, Vercel, Метрика) делал автор. Подробная таблица «что делал ИИ, что проверялось руками» — в [integration_documentation.md, раздел 8](integration_documentation.md#8-как-использовался-ии).
+## Структура
+
+```
+src/pages/                 экраны: вход, программы, тренировка, материалы, замеры, подписка
+src/components/            общие элементы: карточки, поля, состояния загрузки и ошибок
+src/lib/api.ts             все запросы к базе (CRUD), перевод ошибок сервера
+src/lib/validation.ts      проверка форм
+api/health.ts, api/log.ts  серверные функции Vercel
+supabase/migrations/       схема, RLS-политики, контент, исправления аудита
+Dockerfile, docker/        образ приложения (nginx) и песочница базы
+.github/workflows/         CI/CD, мониторинг
+```
+
+## Документация
+
+- **[ai_development_process.md](ai_development_process.md)** — как AI-агент участвовал в каждом
+  этапе: промпты, результаты, проблемы и решения, выводы
+- **[competitor_analysis.md](competitor_analysis.md)** — анализ конкурентов
+- **[integration_documentation.md](integration_documentation.md)** — CI/CD, Google, Метрика,
+  мониторинг, логирование, оптимизация (Lighthouse до/после)
+- **[security_audit.md](security_audit.md)** — аудит по OWASP Top 10: 6 находок, все исправлены
+- **[backend_documentation.md](backend_documentation.md)** — база, политики доступа, API (этап ДЗ 5)
+- **[docs/log-analysis/](docs/log-analysis/README.md)** — анализ логов с AI
+
+История по этапам — отдельные репозитории домашних заданий:
+[выбор инструментов](https://github.com/zaremaabdulganieva-cmyk/lerree-lab-dz-ai-tools) ·
+[правила и промпты](https://github.com/zaremaabdulganieva-cmyk/lerree-lab-dz-ai-rules) ·
+[UI-концепции и ТЗ](https://github.com/zaremaabdulganieva-cmyk/lerree-lab-dz-ui-tz) ·
+[frontend](https://github.com/zaremaabdulganieva-cmyk/lerree-lab-dz-frontend) ·
+[backend](https://github.com/zaremaabdulganieva-cmyk/lerree-lab-dz-backend). Версия, сданная как
+ДЗ 6, — тег [`dz6`](https://github.com/zaremaabdulganieva-cmyk/lerree-lab-dz-cicd/tree/dz6).
+
+## Как использовался AI
+
+Весь код, SQL, конфигурации и документы написаны **Claude Code** по задачам автора — проектного
+менеджера, не разработчика. Автор ставил задачи, принимал решения и проверял результат на каждом
+чекпоинте; ключи, пароли и личные кабинеты (Google, Supabase, Vercel, Метрика) — только автор.
+Подробно — в [ai_development_process.md](ai_development_process.md).

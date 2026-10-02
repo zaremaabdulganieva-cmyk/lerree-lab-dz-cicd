@@ -82,6 +82,45 @@ jobs:
           retention-days: 7
 
   # -------------------------------------------------------------------
+  # 1б. Docker-образ — собирается и проверяется запуском, но никуда
+  #     не публикуется: выкладка идёт на Vercel. Задача — чтобы образ
+  #     для самостоятельного хостинга не ломался незаметно.
+  # -------------------------------------------------------------------
+  docker:
+    name: Docker-образ
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Сборка образа
+        run: >
+          docker build -t lerree-cabinet
+          --build-arg VITE_SUPABASE_URL="$VITE_SUPABASE_URL"
+          --build-arg VITE_SUPABASE_ANON_KEY="$VITE_SUPABASE_ANON_KEY" .
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+
+      - name: Запуск и проверка контейнера
+        run: |
+          docker run -d --name cabinet -p 8080:8080 lerree-cabinet
+          for i in $(seq 1 15); do
+            curl -fs http://localhost:8080/healthz && break
+            sleep 1
+          done
+          curl -fs http://localhost:8080/healthz
+          # Адрес раздела должен открывать приложение, а не 404.
+          curl -fs http://localhost:8080/measurements | grep -q '<div id="root">'
+          # Заголовки безопасности на месте.
+          curl -sI http://localhost:8080/ | grep -qi '^content-security-policy:'
+          echo "Контейнер отвечает, разделы открываются, заголовки на месте"
+
+      - name: Журнал контейнера при ошибке
+        if: failure()
+        run: docker logs cabinet || true
+
+  # -------------------------------------------------------------------
   # 2. Превью для pull request
   # -------------------------------------------------------------------
   deploy-preview:

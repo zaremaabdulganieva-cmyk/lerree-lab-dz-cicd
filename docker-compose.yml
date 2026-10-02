@@ -38,5 +38,22 @@ services:
       timeout: 5s
       retries: 10
 
+  # Само приложение в контейнере (nginx + собранный React).
+  # Запускается отдельно, чтобы обычный `docker compose up` по-прежнему
+  # поднимал только базу:  docker compose --profile app up --build
+  # Ходит в облачный Supabase из .env — локальная песочница выше нужна
+  # только для проверки миграций.
+  app:
+    profiles: [app]
+    build:
+      context: .
+      args:
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL:?задайте VITE_SUPABASE_URL в .env}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY:?задайте VITE_SUPABASE_ANON_KEY в .env}
+    container_name: lerree-cabinet
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:${APP_PORT:-8080}:8080'
+
 volumes:
   db-data:
