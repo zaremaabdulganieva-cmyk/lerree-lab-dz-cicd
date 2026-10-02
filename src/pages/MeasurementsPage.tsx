@@ -1,7 +1,7 @@
-import { useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 import { EmptyState, ErrorState, LoadingState } from '@/components/states'
 import { Button, Card, Field } from '@/components/ui'
-import { fetchMeasurements, saveMeasurement } from '@/lib/api'
+import { deleteMeasurement, fetchMeasurements, saveMeasurement, updateMeasurement } from '@/lib/api'
 import { formatDate, formatDelta, formatNumber } from '@/lib/format'
 import type { Measurement, MeasurementDraft } from '@/lib/types'
 import { validateMeasurement } from '@/lib/validation'
@@ -9,7 +9,26 @@ import { useAsync } from '@/hooks/useAsync'
 
 const EMPTY_DRAFT: MeasurementDraft = { date: '', weightKg: '', waistCm: '', hipsCm: '' }
 
-/** Раздел «Замеры»: личная история веса и объёмов с добавлением новой записи. */
+/** Число из базы обратно в поле ввода — с запятой, как участница его набирала. */
+const toField = (value: number) => String(value).replace('.', ',')
+
+function toDraft(item: Measurement): MeasurementDraft {
+  return {
+    date: item.date,
+    weightKg: toField(item.weightKg),
+    waistCm: toField(item.waistCm),
+    hipsCm: toField(item.hipsCm),
+  }
+}
+
+function messageOf(cause: unknown, fallback: string): string {
+  return cause instanceof Error ? cause.message : fallback
+}
+
+/**
+ * Раздел «Замеры»: личная история веса и объёмов.
+ * Полный цикл: добавить, посмотреть, исправить, удалить.
+ */
 export default function MeasurementsPage() {
   const { status, data, error, retry } = useAsync(fetchMeasurements)
   // Загруженная история хранится в useAsync; локальное состояние появляется
@@ -19,8 +38,15 @@ export default function MeasurementsPage() {
   const [errors, setErrors] = useState<Partial<Record<keyof MeasurementDraft, string>>>({})
   const [saveError, setSaveError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
+  // Какой замер сейчас исправляем (форма та же, что для нового) и какой ждёт подтверждения удаления.
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [confirmId, setConfirmId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [listError, setListError] = useState<string | null>(null)
+  const formTitleRef = useRef<HTMLHeadingElement>(null)
 
   const history = saved ?? data ?? []
+  const editing = editingId !== null
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -35,15 +61,48 @@ export default function MeasurementsPage() {
     setErrors({})
     setPending(true)
     try {
-      const next = await saveMeasurement(result.value)
+      const next = editingId
+        ? await updateMeasurement(editingId, result.value)
+        : await saveMeasurement(result.value)
       setSaved(next)
       setDraft(EMPTY_DRAFT)
+      setEditingId(null)
     } catch (cause: unknown) {
-      setSaveError(
-        cause instanceof Error ? cause.message : 'Не удалось сохранить замер, попробуйте снова',
-      )
+      setSaveError(messageOf(cause, 'Не удалось сохранить замер, попробуйте снова'))
     } finally {
       setPending(false)
+    }
+  }
+
+  function startEdit(item: Measurement) {
+    setEditingId(item.id)
+    setConfirmId(null)
+    setDraft(toDraft(item))
+    setErrors({})
+    setSaveError(null)
+    // На телефоне форма выше списка — подводим к ней, чтобы было видно, что открылось.
+    formTitleRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
+  }
+
+  function cancelEdit() {
+    setEditingId(null)
+    setDraft(EMPTY_DRAFT)
+    setErrors({})
+    setSaveError(null)
+  }
+
+  async function handleDelete(id: string) {
+    setListError(null)
+    setDeletingId(id)
+    try {
+      const next = await deleteMeasurement(id)
+      setSaved(next)
+      setConfirmId(null)
+      if (editingId === id) cancelEdit()
+    } catch (cause: unknown) {
+      setListError(messageOf(cause, 'Не удалось удалить замер, попробуйте снова'))
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -59,12 +118,15 @@ export default function MeasurementsPage() {
       <div>
         <h1 className="text-xl font-bold tracking-tight text-ink sm:text-2xl">Замеры</h1>
         <p className="mt-1 text-sm text-muted">
-          Личная история веса и объёмов. Эти данные видите только вы.
+          Личная история веса и объёмов. Эти данные видите только вы — их можно исправить или
+          удалить.
         </p>
       </div>
 
       <Card>
-        <h2 className="text-base font-semibold text-ink">Новый замер</h2>
+        <h2 ref={formTitleRef} className="scroll-mt-24 text-base font-semibold text-ink">
+          {editing ? 'Исправить замер' : 'Новый замер'}
+        </h2>
         <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-4" noValidate>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field
@@ -110,9 +172,16 @@ export default function MeasurementsPage() {
             </p>
           )}
 
-          <Button type="submit" disabled={pending} className="sm:self-start">
-            {pending ? 'Сохраняем…' : 'Сохранить замер'}
-          </Button>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button type="submit" disabled={pending}>
+              {pending ? 'Сохраняем…' : editing ? 'Сохранить изменения' : 'Сохранить замер'}
+            </Button>
+            {editing && (
+              <Button type="button" variant="ghost" onClick={cancelEdit} disabled={pending}>
+                Отменить
+              </Button>
+            )}
+          </div>
         </form>
       </Card>
 
@@ -124,6 +193,12 @@ export default function MeasurementsPage() {
           title="Замеров пока нет"
           description="Добавьте первый замер — со второго начнём показывать динамику по весу и объёмам."
         />
+      )}
+
+      {listError && (
+        <p role="alert" className="rounded-xl bg-warm-soft px-3 py-2 text-sm text-ink">
+          {listError}
+        </p>
       )}
 
       {status === 'success' && history.length > 0 && (
@@ -154,6 +229,54 @@ export default function MeasurementsPage() {
                       </div>
                     ))}
                   </dl>
+
+                  {confirmId === item.id ? (
+                    <div className="mt-3 flex flex-col gap-2 rounded-xl bg-warm-soft p-3 sm:flex-row sm:items-center">
+                      <span className="text-sm text-ink sm:mr-auto">
+                        Удалить замер за {formatDate(item.date)}? Вернуть его будет нельзя.
+                      </span>
+                      <Button
+                        type="button"
+                        onClick={() => void handleDelete(item.id)}
+                        disabled={deletingId === item.id}
+                      >
+                        {deletingId === item.id ? 'Удаляем…' : 'Да, удалить'}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => setConfirmId(null)}
+                        disabled={deletingId === item.id}
+                      >
+                        Оставить
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="mt-3 flex gap-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="flex-1 sm:flex-none"
+                        aria-label={`Изменить замер за ${formatDate(item.date)}`}
+                        onClick={() => startEdit(item)}
+                        disabled={editingId === item.id}
+                      >
+                        Изменить
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="flex-1 sm:flex-none"
+                        aria-label={`Удалить замер за ${formatDate(item.date)}`}
+                        onClick={() => {
+                          setListError(null)
+                          setConfirmId(item.id)
+                        }}
+                      >
+                        Удалить
+                      </Button>
+                    </div>
+                  )}
                 </Card>
               </li>
             )

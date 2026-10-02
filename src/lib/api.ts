@@ -389,6 +389,66 @@ export async function saveMeasurement(input: MeasurementInput): Promise<Measurem
   return fetchMeasurements()
 }
 
+/**
+ * Если база не вернула ни одной строки — замера уже нет (удалён в другой
+ * вкладке) или он чужой: защита в базе молча отсекает такие строки,
+ * поэтому пустой ответ превращаем в понятную ошибку, а не в «успех».
+ */
+function ensureTouched(rows: unknown[] | null, scope: string): void {
+  if (!rows || rows.length === 0) {
+    throw toApiError(
+      new ApiError('notfound', 'Этот замер уже удалён. Обновите страницу.', 'изменено 0 строк'),
+      scope,
+    )
+  }
+}
+
+/** Исправляет замер и возвращает обновлённую историю по возрастанию даты. */
+export async function updateMeasurement(
+  id: string,
+  input: MeasurementInput,
+): Promise<Measurement[]> {
+  guardNetwork()
+  const userId = await requireUserId()
+
+  const { data, error } = await getSupabase()
+    .from('measurements')
+    .update({
+      measured_on: input.date,
+      weight_kg: input.weightKg,
+      waist_cm: input.waistCm,
+      hips_cm: input.hipsCm,
+    })
+    .eq('id', id)
+    .eq('user_id', userId)
+    .select('id')
+
+  if (error) throw toApiError(error, 'api.updateMeasurement')
+  ensureTouched(data, 'api.updateMeasurement')
+
+  log.info('api.updateMeasurement', 'замер исправлен', input.date)
+  return fetchMeasurements()
+}
+
+/** Удаляет замер и возвращает оставшуюся историю. */
+export async function deleteMeasurement(id: string): Promise<Measurement[]> {
+  guardNetwork()
+  const userId = await requireUserId()
+
+  const { data, error } = await getSupabase()
+    .from('measurements')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', userId)
+    .select('id')
+
+  if (error) throw toApiError(error, 'api.deleteMeasurement')
+  ensureTouched(data, 'api.deleteMeasurement')
+
+  log.info('api.deleteMeasurement', 'замер удалён', id)
+  return fetchMeasurements()
+}
+
 // =====================================================================
 // Подходы на тренировке
 // =====================================================================
