@@ -1,0 +1,12 @@
+# В контекст сборки образа не отправляем лишнее и секретное.
+node_modules
+dist
+coverage
+.git
+.github
+.env
+.env.*
+!.env.example
+logs
+*.log
+docs
