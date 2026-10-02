@@ -27,13 +27,20 @@ function builder(table: string) {
 
   const query: Record<string, unknown> = {
     select: () => query,
-    eq: () => query,
+    eq: (column: string, value: unknown) => {
+      calls.push({ table, op: 'eq', payload: [column, value] })
+      return query
+    },
     order: () => query,
     limit: () => query,
     returns: () => Promise.resolve(result()),
     maybeSingle: () => Promise.resolve(result()),
     insert: (payload: unknown) => {
       calls.push({ table, op: 'insert', payload })
+      return query
+    },
+    update: (payload: unknown) => {
+      calls.push({ table, op: 'update', payload })
       return query
     },
     delete: () => {
@@ -71,6 +78,7 @@ vi.mock('@/lib/supabase', () => ({
 }))
 
 const {
+  deleteMeasurement,
   fetchMeasurements,
   fetchProgram,
   loginWithGoogle,
@@ -78,6 +86,7 @@ const {
   saveSets,
   setOffline,
   fetchSavedSets,
+  updateMeasurement,
 } = await import('@/lib/api')
 
 beforeEach(() => {
@@ -204,7 +213,7 @@ describe('запись данных', () => {
 
     await saveSets('e-1', [{ kg: 12, reps: 10 }])
 
-    const order = calls.filter((call) => call.op !== 'from').map((call) => call.op)
+    const order = calls.filter((call) => !['from', 'eq'].includes(call.op)).map((call) => call.op)
     expect(order).toEqual(['delete', 'insert'])
   })
 
@@ -218,6 +227,67 @@ describe('запись данных', () => {
 
     const insert = calls.find((call) => call.op === 'insert')
     expect(insert?.payload).toMatchObject([{ set_index: 1 }, { set_index: 2 }])
+  })
+})
+
+describe('исправление и удаление замеров', () => {
+  const row = { id: 'ms-1', measured_on: '2026-08-01', weight_kg: 60, waist_cm: 69, hips_cm: 96 }
+
+  it('исправляет только свой замер: фильтр и по id, и по участнице', async () => {
+    tables.measurements = { data: [row], error: null }
+
+    await updateMeasurement('ms-1', { date: '2026-08-02', weightKg: 59.5, waistCm: 68, hipsCm: 95 })
+
+    const update = calls.find((call) => call.op === 'update')
+    expect(update?.payload).toEqual({
+      measured_on: '2026-08-02',
+      weight_kg: 59.5,
+      waist_cm: 68,
+      hips_cm: 95,
+    })
+    const filters = calls.filter((call) => call.op === 'eq').map((call) => call.payload)
+    expect(filters).toContainEqual(['id', 'ms-1'])
+    expect(filters).toContainEqual(['user_id', 'user-anna'])
+  })
+
+  it('удаляет замер и возвращает оставшуюся историю', async () => {
+    tables.measurements = { data: [row], error: null }
+
+    const result = await deleteMeasurement('ms-1')
+
+    expect(calls.some((call) => call.op === 'delete')).toBe(true)
+    expect(calls.filter((call) => call.op === 'eq').map((call) => call.payload)).toContainEqual([
+      'user_id',
+      'user-anna',
+    ])
+    expect(result).toHaveLength(1)
+  })
+
+  it('если база не нашла замер (удалён или чужой) — честная ошибка, а не тихий «успех»', async () => {
+    tables.measurements = { data: [], error: null }
+
+    await expect(deleteMeasurement('ms-404')).rejects.toMatchObject({
+      kind: 'notfound',
+      message: expect.stringContaining('уже удалён'),
+    })
+    await expect(
+      updateMeasurement('ms-404', { date: '2026-08-02', weightKg: 60, waistCm: 68, hipsCm: 95 }),
+    ).rejects.toMatchObject({ kind: 'notfound' })
+  })
+
+  it('исправление на дату, где уже есть замер, объясняется человеку', async () => {
+    tables.measurements = { data: null, error: { code: '23505', message: 'duplicate key' } }
+
+    await expect(
+      updateMeasurement('ms-1', { date: '2026-08-15', weightKg: 60, waistCm: 68, hipsCm: 95 }),
+    ).rejects.toMatchObject({ kind: 'conflict' })
+  })
+
+  it('без сети не удаляет и не отправляет запрос', async () => {
+    setOffline(true)
+
+    await expect(deleteMeasurement('ms-1')).rejects.toMatchObject({ kind: 'network' })
+    expect(calls).toHaveLength(0)
   })
 })
 
