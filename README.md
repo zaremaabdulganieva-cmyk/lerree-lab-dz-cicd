@@ -132,6 +132,7 @@ Dockerfile, docker/        образ приложения (nginx) и песоч
 - **[ai_development_process.md](ai_development_process.md)** — как AI-агент участвовал в каждом
   этапе: промпты, результаты, проблемы и решения, выводы
 - **[competitor_analysis.md](competitor_analysis.md)** — анализ конкурентов
+- **[Презентация для защиты](docs/presentation/lerree-lab-final.pptx)** — 14 слайдов с заметками докладчика, [PDF-версия](docs/presentation/lerree-lab-final.pdf)
 - **[integration_documentation.md](integration_documentation.md)** — CI/CD, Google, Метрика,
   мониторинг, логирование, оптимизация (Lighthouse до/после)
 - **[security_audit.md](security_audit.md)** — аудит по OWASP Top 10: 6 находок, все исправлены
